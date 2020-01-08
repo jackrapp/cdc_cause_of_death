@@ -18,6 +18,8 @@ function init() {
   updateLinechart('Minnesota');
 }
 
+init();
+
 function optionChanged(newState) {
   // Fetch new data each time a new state is selected
   updateLinechart(newState);
@@ -34,12 +36,97 @@ function updateLinechart(chosenState) {
       "state" : chosenState,
     }
   }).done(function(data) {
-    alert("Retrieved " + data.length + ' ' + chosenState + " records from the dataset!");
+    // run this to see what is in the data
+    // also to make sure the data loads
     console.log(data);
-  });
-};
+    
+    // convert data to numerical values
+    data.forEach(function(row) {
+      row.year = +row.year;
+      row.aadr = +row.aadr;
+    });
 
-init();
+    // call chart function
+    buildChart(data);
+  }); // end of .done(function(data))
+}; // end of updateLinechart
+
+// Build chart with d3
+function buildChart(data) {
+  // Checking to see if svg exists and removing it on resize
+  var svgArea = d3.select("body").select("svg");
+  
+  if (!svgArea.empty()) {
+    svgArea.remove();
+  };
+  
+  // Chart set-up
+  // SVG size based on size of column ratio of 16:9 width:height
+  var svgWidth = document.getElementById('lineChart').clientWidth;
+  var svgHeight =  svgWidth / 1.8;
+  
+  // Chart margins
+  var chartMargin = {
+    top: 30,
+    right: 30,
+    bottom: 90,
+    left: 70
+  };
+  
+  // Combine chart margins and SVG size
+  var chartHeight = svgHeight - chartMargin.top - chartMargin.bottom;
+  var chartWidth = svgWidth - chartMargin.left - chartMargin.right;
+  
+  // Define SVG element
+  var svg = d3.select('#lineChart')
+    .append('svg')
+    .attr('height', svgHeight)
+    .attr('width', svgWidth)
+    .attr('class','chartArea');
+    
+  // Add chart group within SVG and shift to fit the margins
+  var chartGroup = svg.append("g")
+    .attr("transform", `translate(${chartMargin.left}, ${chartMargin.top})`);
+
+  // set scale based on max/min values
+  // create x scale
+  var xLinearScale = d3.scaleLinear()
+    .domain(d3.extent(data, d => d.year))
+    .range([0, chartWidth]);
+
+  // Create y scale
+  // Try d3 extent first - if weird change to d3 max value
+  var yLinearScale = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.aadr)])
+    .range([chartHeight, 0]);
+
+  // Create initial axis functions
+  var bottomAxis = d3.axisBottom(xLinearScale);
+  var leftAxis = d3.axisLeft(yLinearScale);
+
+  // Add x axis to chart
+  chartGroup.append('g')
+    .attr("transform", `translate(0, ${chartHeight})`)
+    .call(bottomAxis);
+
+  // Add y axis to chart
+  chartGroup.append('g').call(leftAxis);
+
+  // Represent data using circle elements
+  // append initial circles
+  chartGroup.selectAll("circle")
+    .data(data)
+    .enter()
+    .append("circle")
+    .attr("cx", d => xLinearScale(d.year))
+    .attr("cy", d => yLinearScale(d.aadr))
+    .attr("r", 10)
+    .attr("fill", "blue")
+    .attr("opacity", ".6");
+
+} // end of buildChart
+
+//Build code to color circle by cause of death
 
 // Call function to make graph for default state
   // buildLineGraph('Minnesota');
