@@ -115,6 +115,17 @@ function buildChart(data) {
   // Add y axis to chart
   chartGroup.append('g').call(leftAxis);
 
+  // Create data groups that allow color function and line graphs
+  var causeGroup = d3.nest() // group data under the key of cause_name
+    .key(d => d.cause_name)
+    .entries(data);
+
+   // Color filter
+   var causes = causeGroup.map(function(d){ return d.key })
+   var colorFilter = d3.scaleOrdinal()
+     .domain(causes)
+     .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+
   // Represent data using circle elements
   // append initial circles
   chartGroup.selectAll("circle")
@@ -123,9 +134,24 @@ function buildChart(data) {
     .append("circle")
     .attr("cx", d => xLinearScale(d.year))
     .attr("cy", d => yLinearScale(d.aadr))
-    .attr("r", 10)
-    .attr("fill", "blue")
+    .attr("r", 4)
+    .attr("fill", function(d){ return colorFilter(d.key) })
     .attr("opacity", ".6");
+
+  // Draw the line
+  chartGroup.selectAll(".line")
+      .data(causeGroup)
+      .enter()
+      .append("path")
+        .attr("fill", "none")
+        .attr("stroke", function(d){ return colorFilter(d.key) })
+        .attr("stroke-width", 1.5)
+        .attr("d", function(d){
+          return d3.line()
+            .x(d => xLinearScale(d.year))
+            .y(d => yLinearScale(d.aadr))
+            (d.values)
+        });
 
 } // end of buildChart
 
