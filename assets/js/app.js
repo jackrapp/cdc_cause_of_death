@@ -46,7 +46,6 @@ function updateLinechart(chosenState) {
     
     // convert data to numerical values
     newData.forEach(function(row) {
-      row.year = +row.year;
       row.aadr = +row.aadr;
     });
 
@@ -93,10 +92,21 @@ function buildChart(data) {
     .attr("transform", `translate(${chartMargin.left}, ${chartMargin.top})`);
 
   // set scale based on max/min values
-  // create x scale
-  var xLinearScale = d3.scaleLinear()
-    .domain(d3.extent(data, d => d.year))
-    .range([0, chartWidth]);
+  // create primary x scale
+  var xYearScale = d3.scaleBand()
+    .domain(data.map(function(d) {
+      return d.year
+    }))
+    .rangeRound([0, chartWidth])
+    .padding(0.1);
+
+  // create secondary x scale
+  var xCauseScale = d3.scaleBand()
+    .domain(data.map(function(d) {
+      return d.cause_name
+    }))
+    .rangeRound([0, xYearScale.bandwidth()])
+    .padding(0.05);
 
   // Create y scale
   var yLinearScale = d3.scaleLinear()
@@ -104,7 +114,7 @@ function buildChart(data) {
     .range([chartHeight, 0]);
 
   // Create initial axis functions
-  var bottomAxis = d3.axisBottom(xLinearScale);
+  var bottomAxis = d3.axisBottom(xYearScale);
   var leftAxis = d3.axisLeft(yLinearScale);
 
   // Add x axis to chart
@@ -115,43 +125,24 @@ function buildChart(data) {
   // Add y axis to chart
   chartGroup.append('g').call(leftAxis);
 
-  // Create data groups that allow color function and line graphs
-  var causeGroup = d3.nest() // group data under the key of cause_name
-    .key(d => d.cause_name)
-    .entries(data);
-
-   // Color filter
-   var causes = causeGroup.map(function(d){ return d.key })
-   var colorFilter = d3.scaleOrdinal()
-     .domain(causes)
+  // Color filter
+  var colorFilter = d3.scaleOrdinal()
      .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
 
-  // Represent data using circle elements
-  // append initial circles
-  chartGroup.selectAll("circle")
+  // Add rectangles for causes of death by year
+  chartGroup.append('g')
+    .selectAll("g")
     .data(data)
-    .enter()
-    .append("circle")
-    .attr("cx", d => xLinearScale(d.year))
-    .attr("cy", d => yLinearScale(d.aadr))
-    .attr("r", 4)
-    .attr("fill", function(d){ return colorFilter(d.key) })
-    .attr("opacity", ".6");
-
-  // Draw the line
-  chartGroup.selectAll(".line")
-      .data(causeGroup)
-      .enter()
-      .append("path")
-        .attr("fill", "none")
-        .attr("stroke", function(d){ return colorFilter(d.key) })
-        .attr("stroke-width", 1.5)
-        .attr("d", function(d){
-          return d3.line()
-            .x(d => xLinearScale(d.year))
-            .y(d => yLinearScale(d.aadr))
-            (d.values)
-        });
+    .join("g")
+      .attr("transform", d => `translate(${xYearScale(d.year)},0)`)
+    .selectAll("rect")
+    .data(data)
+    .join("rect")
+      .attr("x", d => xCauseScale(d.cause_name))
+      .attr("y", d => yLinearScale(d.aadr))
+      .attr("width", xCauseScale.bandwidth())
+      .attr("height", d => yLinearScale(0) - yLinearScale(d.aadr))
+      .attr("fill", d => colorFilter(d.aadr));
 
 } // end of buildChart
 
