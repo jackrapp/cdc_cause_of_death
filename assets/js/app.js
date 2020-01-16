@@ -41,9 +41,11 @@ function updateLinechart(chosenState) {
     console.log(data);
 
     var newData = data.filter(function(d) {
-      return d._113_cause_name != 'All Causes'
+      return d._113_cause_name != 'All Causes' && 
+      d.cause_name != 'Heart disease' && 
+      d.cause_name != 'Cancer'
     });
-    
+
     // convert data to numerical values
     newData.forEach(function(row) {
       row.aadr = +row.aadr;
@@ -91,20 +93,30 @@ function buildChart(data) {
   var chartGroup = svg.append("g")
     .attr("transform", `translate(${chartMargin.left}, ${chartMargin.top})`);
 
+  // Pull out unique years
+  var years = d3.values(data.map(function (d) { return d.year; }))
+  var yearsUnique = years.filter(function (elem, pos) {
+    return years.indexOf(elem) == pos; })
+
+  console.log(yearsUnique);
+
   // set scale based on max/min values
   // create primary x scale
   var xYearScale = d3.scaleBand()
-    .domain(data.map(function(d) {
-      return d.year
-    }))
-    .rangeRound([0, chartWidth])
+    .domain(yearsUnique)
+    .rangeRound([chartWidth, 0])
     .padding(0.1);
+
+  // Pull out unique cause names
+  var causes = d3.values(data.map(function (d) { return d.cause_name; }))
+  var causesUnique = causes.filter(function (elem, pos) {
+    return causes.indexOf(elem) == pos; })
+
+  console.log(causesUnique);
 
   // create secondary x scale
   var xCauseScale = d3.scaleBand()
-    .domain(data.map(function(d) {
-      return d.cause_name
-    }))
+    .domain(causesUnique)
     .rangeRound([0, xYearScale.bandwidth()])
     .padding(0.05);
 
@@ -127,24 +139,51 @@ function buildChart(data) {
 
   // Color filter
   var colorFilter = d3.scaleOrdinal()
-     .range(['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999'])
+     .range(['#ffe6cc','#ffcc99','#ffb366','#ff9933','#ff8000','#cc6600','#994d00','#663300']) //,'#331a00'
 
-  // Add rectangles for causes of death by year
-  chartGroup.append('g')
-    .selectAll("g")
-    .data(data)
-    .join("g")
-      .attr("transform", d => `translate(${xYearScale(d.year)},0)`)
-    .selectAll("rect")
-    .data(data)
-    .join("rect")
-      .attr("x", d => xCauseScale(d.cause_name))
-      .attr("y", d => yLinearScale(d.aadr))
-      .attr("width", xCauseScale.bandwidth())
-      .attr("height", d => yLinearScale(0) - yLinearScale(d.aadr))
-      .attr("fill", d => colorFilter(d.aadr));
+  // Add groupings for causes of death by year
+  var yearGroups = chartGroup.selectAll('g')
+  .data(data)
+  .enter()
+  .append("g")
+  .attr("transform", d => `translate(${xYearScale(d.year)},0)`);
+
+  // Add causes to each year grouping
+  yearGroups.selectAll(null)
+    .data(function(d) {
+      return [d]
+    })
+    .enter()
+    .append("rect")
+    .attr("x", d => xCauseScale(d.cause_name))
+    .attr("y", d => yLinearScale(d.aadr))
+    .attr("width", xCauseScale.bandwidth())
+    .attr("height", d => yLinearScale(0) - yLinearScale(d.aadr))
+    .attr("fill", d => colorFilter(d.cause_name));
+    
+    //Legend
+    var legend = svg.selectAll(".legend")
+      .data(causesUnique)
+      .enter().append("g")
+      .attr("class", "legend")
+      .attr("transform", (d,i) => "translate(0," + i * 20 + ")");
+      
+    legend.append("rect")
+      .attr("x", chartWidth - 18)
+      .attr("width", 18)
+      .attr("height", 18)
+      .style("fill", (d,i) => colorFilter(i));
+      
+    legend.append("text")
+      .attr("x", chartWidth - 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "end")
+      .text(d => d);
 
 } // end of buildChart
+
+
 
 //Build code to color circle by cause of death
 
